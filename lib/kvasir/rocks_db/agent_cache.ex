@@ -6,7 +6,8 @@ defmodule Kvasir.RocksDB.AgentCache do
   @type ref :: {:rocksdb.db_handle(), String.t()}
 
   def open_db(agent, partition, opts) do
-    key = {agent, partition}
+    key = agent
+    # {agent, partition}
 
     if is_nil(Kvasir.RocksDB.lookup(key)) do
       path = db(opts[:directory], agent, partition)
@@ -50,8 +51,9 @@ defmodule Kvasir.RocksDB.AgentCache do
   @spec cache(any, any, any) :: {:ok, ref}
   def cache(agent, partition, id)
 
-  def cache(agent, partition, id) do
-    {:ok, {Kvasir.RocksDB.lookup({agent, partition}), to_string(id)}}
+  def cache(agent, _partition, id) do
+    key = agent
+    {:ok, {Kvasir.RocksDB.lookup(key), to_string(id)}}
   end
 
   @merge_open :erlang.term_to_binary({:list_set, 0, true})
@@ -97,13 +99,15 @@ defmodule Kvasir.RocksDB.AgentCache do
   @spec db(String.t() | nil, module, non_neg_integer) :: charlist()
   defp db(directory, agent, partition)
 
-  defp db(nil, agent, partition) do
+  defp db(nil, agent, _partition) do
     path = agent |> Module.split() |> Enum.map(&Macro.underscore/1)
-    full = ["./cache" | path] ++ [to_string(partition)]
+    # full = ["./cache" | path] ++ [to_string(partition)]
+    full = ["./cache" | path]
     full |> Path.join() |> String.to_charlist()
   end
 
-  defp db(dir, _agent, partition) do
-    dir |> Path.join(to_string(partition)) |> String.to_charlist()
+  defp db(dir, _agent, _partition) do
+    # dir |> Path.join(to_string(partition)) |> String.to_charlist()
+    String.to_charlist(dir)
   end
 end
