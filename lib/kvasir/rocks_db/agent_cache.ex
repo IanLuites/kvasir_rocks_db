@@ -37,6 +37,49 @@ defmodule Kvasir.RocksDB.AgentCache do
   end
 
   @impl Kvasir.Agent.Cache
+  def stream(agent) do
+    key = agent
+    key_parser = &agent.__agent__(:key).parse/1
+
+    if db = Kvasir.RocksDB.lookup(key) do
+      Stream.resource(
+        fn ->
+          case :rocksdb.iterator(db, []) do
+            {:ok, iterator} -> {iterator, :rocksdb.iterator_move(iterator, :first)}
+            _ -> false
+          end
+        end,
+        fn
+          {i, {:error, _}} ->
+            {:halt, i}
+
+          {i, {:ok, r, v}} ->
+            v =
+              case key_parser.(r) do
+                {:ok, k} ->
+                  case parse_data(v) do
+                    {:ok, offset, state} -> [{k, offset, state, {db, r}}]
+                    :no_previous_state -> []
+                    {:error, :corrupted_state} -> [{k, :corrupted_state}]
+                  end
+
+                _ ->
+                  []
+              end
+
+            {v, {i, :rocksdb.iterator_move(i, :next)}}
+
+          false ->
+            {:halt, false}
+        end,
+        &(&1 && :rocksdb.iterator_close(&1))
+      )
+    else
+      []
+    end
+  end
+
+  @impl Kvasir.Agent.Cache
   def init(agent, partition, opts) do
     args = [agent, partition, opts]
 
@@ -80,11 +123,7 @@ defmodule Kvasir.RocksDB.AgentCache do
         :no_previous_state
 
       {:ok, data} ->
-        case :erlang.binary_to_term(data) do
-          [false] -> :no_previous_state
-          [false, offset, data] -> {:ok, offset, data}
-          _ -> {:error, :corrupted_state}
-        end
+        parse_data(data)
 
       err ->
         err
@@ -109,5 +148,14 @@ defmodule Kvasir.RocksDB.AgentCache do
   defp db(dir, _agent, _partition) do
     # dir |> Path.join(to_string(partition)) |> String.to_charlist()
     String.to_charlist(dir)
+  end
+
+  @spec parse_data(binary) :: :no_previous_state | {:ok, term, term} | {:error, :corrupted_state}
+  defp parse_data(data) do
+    case :erlang.binary_to_term(data) do
+      [false] -> :no_previous_state
+      [false, offset, data] -> {:ok, offset, data}
+      _ -> {:error, :corrupted_state}
+    end
   end
 end
