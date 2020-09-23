@@ -15,22 +15,19 @@ defmodule Kvasir.RocksDB.AgentCache do
 
       compact = System.schedulers()
 
-      {:ok, ref} =
-        :rocksdb.open(path,
-          max_background_compactions: compact,
-          max_open_files: -1,
-          create_if_missing: true,
-          merge_operator: :erlang_merge_operator,
-          # merge_operator: {:bitset_merge_operator, 8},
-          keep_log_file_num: 1,
-          db_log_dir: '/tmp/rocks',
-          allow_concurrent_memtable_write: true,
-          enable_write_thread_adaptive_yield: true,
-          use_direct_reads: true
-          # enable_pipelined_write: true
-        )
-
-      Kvasir.RocksDB.register(key, ref)
+      Kvasir.RocksDB.open(key, path,
+        max_background_compactions: compact,
+        max_open_files: -1,
+        create_if_missing: true,
+        merge_operator: :erlang_merge_operator,
+        # merge_operator: {:bitset_merge_operator, 8},
+        keep_log_file_num: 1,
+        db_log_dir: '/tmp/rocks',
+        allow_concurrent_memtable_write: true,
+        enable_write_thread_adaptive_yield: true,
+        use_direct_reads: true
+        # enable_pipelined_write: true
+      )
     end
 
     {:ok, self()}
