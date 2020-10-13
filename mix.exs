@@ -1,10 +1,10 @@
 defmodule Kvasir.RocksDB.MixProject do
   use Mix.Project
-  @version "0.0.1"
+  @version "0.0.2"
 
   def project do
     [
-      app: :kvasir_rocks_db,
+      app: :csh2fjhyll_kvasir_rocks_db,
       description: "RocksDB agent cache.",
       version: @version,
       elixir: "~> 1.10",
@@ -36,7 +36,7 @@ defmodule Kvasir.RocksDB.MixProject do
 
   def package do
     [
-      name: :kvasir_rocks_db,
+      name: :csh2fjhyll_kvasir_rocks_db,
       maintainers: ["Ian Luites"],
       licenses: ["MIT"],
       files: [
@@ -63,9 +63,11 @@ defmodule Kvasir.RocksDB.MixProject do
 
   defp deps do
     [
-      {:kvasir_agent, git: "https://github.com/IanLuites/kvasir_agent", branch: "release/v1.0"},
+      {:csh2fjhyll_kvasir_agent, ">= 0.0.3"},
+      # {:csh2fjhyll_rdb, "~> 1.5"},
       {:rocksdb,
-       git: "https://gitlab.com/michel.boaventura/erlang-rocksdb.git", branch: "fix_otp23"}
+       git: "https://gitlab.com/michel.boaventura/erlang-rocksdb.git", branch: "fix_otp23"},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 end
