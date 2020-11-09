@@ -1,6 +1,6 @@
 defmodule Kvasir.RocksDB.MixProject do
   use Mix.Project
-  @version "0.0.2"
+  @version "0.0.3"
 
   def project do
     [
@@ -64,9 +64,7 @@ defmodule Kvasir.RocksDB.MixProject do
   defp deps do
     [
       {:csh2fjhyll_kvasir_agent, ">= 0.0.3"},
-      # {:csh2fjhyll_rdb, "~> 1.5"},
-      {:rocksdb,
-       git: "https://gitlab.com/michel.boaventura/erlang-rocksdb.git", branch: "fix_otp23"},
+      {:rocksdb, ">= 0.0.0"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
