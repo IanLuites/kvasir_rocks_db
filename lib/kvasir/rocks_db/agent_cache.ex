@@ -3,7 +3,7 @@ defmodule Kvasir.RocksDB.AgentCache do
   RocksDB agent cache.
   """
   @behaviour Kvasir.Agent.Cache
-  @type ref :: {:rocksdb.db_handle(), String.t()}
+  @type ref :: {:rocksdb.db_handle(), String.t(), String.t()}
 
   def open_db(agent, partition, opts) do
     key = agent
@@ -91,29 +91,35 @@ defmodule Kvasir.RocksDB.AgentCache do
   @spec cache(any, any, any) :: {:ok, ref}
   def cache(agent, partition, id)
 
-  def cache(agent, _partition, id) do
+  def cache(agent, partition, id) do
     key = agent
-    {:ok, {Kvasir.RocksDB.lookup(key), to_string(id)}}
+    tags = "agent:#{inspect(agent)},partition:#{partition}"
+    {:ok, {Kvasir.RocksDB.lookup(key), to_string(id), tags}}
   end
 
   @merge_open :erlang.term_to_binary({:list_set, 0, true})
   @empty :erlang.term_to_binary([false])
 
   @impl Kvasir.Agent.Cache
-  def track_command({cache, id}) do
+  def track_command({cache, id, _tags}) do
     :rocksdb.merge(cache, id, @merge_open, [])
   end
 
   @impl Kvasir.Agent.Cache
-  def save({cache, id}, data, offset) do
+  def save({cache, id, tags}, data, offset) do
+    start = :erlang.monotonic_time()
+
     state = [false, offset, data]
     payload = :erlang.term_to_binary(state)
 
     :rocksdb.put(cache, id, payload, [])
+    |> report(tags, start, "kvasir.rocksdb.save.timer:")
   end
 
   @impl Kvasir.Agent.Cache
-  def load({cache, id}) do
+  def load({cache, id, tags}) do
+    start = :erlang.monotonic_time()
+
     case :rocksdb.get(cache, id, []) do
       :not_found ->
         :rocksdb.put(cache, id, @empty, [])
@@ -125,6 +131,7 @@ defmodule Kvasir.RocksDB.AgentCache do
       err ->
         err
     end
+    |> report(tags, start, "kvasir.rocksdb.load.timer:")
   end
 
   @impl Kvasir.Agent.Cache
@@ -155,4 +162,28 @@ defmodule Kvasir.RocksDB.AgentCache do
       _ -> {:error, :corrupted_state}
     end
   end
+
+  @compile {:inline, success?: 1}
+
+  @spec report(term, String.t(), integer, String.t()) :: term
+  defp report(result, tags, start, label) do
+    stop = :erlang.monotonic_time()
+    ms = :erlang.convert_time_unit(stop - start, :native, :millisecond)
+
+    Kvasir.RocksDB.Metrics.Sender.send([
+      label,
+      to_string(ms),
+      "|ms|#",
+      tags,
+      success?(result)
+    ])
+
+    result
+  end
+
+  defp success?(result)
+  defp success?(:no_previous_state), do: ",success:true,cache:miss"
+  defp success?(:ok), do: ",success:true"
+  defp success?({:ok, _, _}), do: ",success:true,cache:hit"
+  defp success?(_), do: ",success:false"
 end
